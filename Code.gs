@@ -3,20 +3,24 @@
 function updateAverages() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  //fetch the 24 hour price data 
   const newData = getNew24HourData(ss);
 
+  //append the newData to 'historical data' sheet
   appendHistoricalData(ss, newData);
   
+  //get the last 7 and 28 days of price data
   const weeklyData = getLast7DaysPrices(ss);
   const fourWeekData =  getLast4WeekPrices(ss);
   
+  //calculate the average prices of both periods
   const weeklyAverages = calculateAverage(weeklyData);
   const fourWeekAverages = calculateAverage(fourWeekData);
   
+  // update the 'Averages' sheet with the new weekly and four weeks averages
   updateAveragesSheet(ss, weeklyAverages, fourWeekAverages);
 
-  Logger.log(`Weekly ${weeklyAverages}, 4 Weeks ${fourWeekAverages}`);
-
+  //generate charts based on the stored data
   createCharts(ss, weeklyAverages, fourWeekAverages);
 
   Logger.log("Averages have been successfully updated!");
@@ -29,17 +33,20 @@ function getOrCreateSheet(ss, sheetName) {
 
 //this is where the charts are generated
 function createCharts(ss, weeklyAverages, fourWeeksAverage) {
+  // fetch both the chart sheets
   const chartSheet = getOrCreateSheet(ss, "Weekly Chart");
   const fourWeeksSheet = getOrCreateSheet(ss, "FourWeeks Chart");
 
+  //make sure the chartsheets exists
   if (!chartSheet || !fourWeeksSheet) {
     Logger.log("Weekly Chart or FourWeeks Chart sheet not found!");
     return;
   }
 
-  const products = Object.keys(weeklyAverages);
-  const headers = ["Date", ...products];
+  const products = Object.keys(weeklyAverages); //extract products
+  const headers = ["Date", ...products]; // defining the chart header
 
+  // if the chart sheets are empty, set headers
   if (chartSheet.getLastRow() === 0) {
     chartSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
@@ -47,8 +54,13 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
     fourWeeksSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
 
+
   const now = new Date();
-  const formattedDate = Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), "yyyy/MM/dd");
+  const formattedDate = Utilities.formatDate(now, "Asia/Manila", "yyyy/MM/dd"); //Change TimeZone Here
+
+
+
+  // Updates or appends data to a given sheet. If the data already exists it updates; otherswise, it appends.
 
   function updateOrAppend(sheet, data) { 
     const lastRow = sheet.getLastRow();
@@ -62,6 +74,8 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
 
     const plainTextData = data.map(value => value.toString());
     // convert into plainText since charts not working well with Date Obj
+    
+    // Prevent duplicate data entry for the same date
     if (lastDate === formattedDate) {
       sheet.getRange(lastRow, 1, 1, plainTextData.length).setValues([plainTextData]);
       Logger.log(`Updated today's existing data in ${sheet.getName()}.`);
@@ -71,6 +85,7 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
     }
   }
 
+  // prepare and store data for both weekly and four-week charts
   const weeklyRowData = [
     formattedDate,
     ...products.map(p => parseFloat(weeklyAverages[p]).toFixed(2).toString()),
@@ -80,20 +95,25 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
     ...products.map(p => parseFloat(fourWeeksAverage[p]).toFixed(2).toString()),
   ];
 
+  // add data to the chart sheets
   updateOrAppend(chartSheet, weeklyRowData);
   updateOrAppend(fourWeeksSheet, fourWeeksRowData);
 
+  //get the range for both sheet
   const weeklyDataRange = chartSheet.getRange(2, 1, chartSheet.getLastRow() - 1, headers.length);
   
   const fourWeeksDataRange = fourWeeksSheet.getRange(2, 1, fourWeeksSheet.getLastRow() - 1, headers.length);
 
 
+  // get the date for both the sheets data to use as x-axis labels on the chart
   const weeklyDates = chartSheet.getRange(2, 1, chartSheet.getLastRow() - 1, 1).getValues().map(row => row[0].toString());
   const fourWeeksDates = fourWeeksSheet.getRange(2, 1, fourWeeksSheet.getLastRow() - 1, 1).getValues().map(row => row[0].toString());
 
+  //remove any existing charts
   chartSheet.getCharts().forEach(chart => chartSheet.removeChart(chart));
   fourWeeksSheet.getCharts().forEach(chart => fourWeeksSheet.removeChart(chart));
 
+  // craete an object to hold the series option for both the weekly and 4 weeks chart chart
   const weeklySeriesOptions = {};
   products.forEach((product, index) => {
     weeklySeriesOptions[index] = { labelInLegend: product };
@@ -104,6 +124,8 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
     fourWeeksSeriesOptions[index] = { labelInLegend: product };
   });
 
+  
+  //create the charts
   const weeklyChart = chartSheet.newChart()
     .setChartType(Charts.ChartType.LINE)
     .addRange(weeklyDataRange)
@@ -154,23 +176,32 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
     Logger.log("Weekly and Four Weeks Average Charts Created Successfully.");
 }
 
-
+// get the 24 hour prices 
 function getNew24HourData(ss) {
+  // get or create the sheet "New 24 Hour Data"
   const sheet = getOrCreateSheet(ss, "New 24 Hour Data");
   
+  // check if the sheet exist if not, then return empty array
   if (!sheet) {
     Logger.log("Sheet not found!");
     return [];
   }
   
+  // get the headers from the first row of the sheet, the column titles
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // get the last row
   const lastRow = sheet.getLastRow();
+
+  // find the column index of both column title
   const priceColumnIndex = headers.indexOf("24 Hour Price") + 1;
   const productColumnIndex = headers.indexOf("Product") + 1;
   
+  //get the values for both columns
   const valuesProduct = sheet.getRange(2, productColumnIndex, lastRow - 1, 1).getValues();
   const valuesPrice = sheet.getRange(2, priceColumnIndex, lastRow - 1, 1).getValues();
   
+  // combine both data into single array of objects
   const combinedData = valuesProduct.map((product, index) => ({
     product: product[0],
     price: valuesPrice[index][0],
@@ -179,16 +210,21 @@ function getNew24HourData(ss) {
   return combinedData;
 }
 
+// calculation of averages
 function calculateAverage(lastData) {  
+  // create an object to hold the averages for both weekly and four weeks
   const weeklyAverages = {};
 
+  // iteratate through each product
   for (const [product, prices] of Object.entries(lastData)) {
+    //check if there are no prices available for the current product
     if (prices.length === 0) {
       Logger.log(`No prices available for product: ${product}`);
       weeklyAverages[product] = null;
       continue;
     }
 
+  // calculate the total of the prices by summing up all the values
     const total = prices.reduce((sum, price) => sum + parseFloat(price || 0), 0);
     weeklyAverages[product] = total / prices.length;
   }
@@ -196,9 +232,15 @@ function calculateAverage(lastData) {
   return weeklyAverages;
 }
 
+// get the recent 4 week prices
 function getLast4WeekPrices(ss) {
+  // retrieve the 'Historical Data' sheet
   const sheet = getOrCreateSheet(ss, "Historical Data");
+
+  //get all the data from the sheet
   const data = sheet.getDataRange().getValues();
+
+  //destructure the data into headerRow and remaining data
   const [headerRow, ...rows] = data;
   
   const productIndex = headerRow.indexOf("Product");
@@ -210,11 +252,13 @@ function getLast4WeekPrices(ss) {
 
   const lastFourWeeksData = {};
 
+  // iteratate throuch each row of data
   rows.forEach(row => {
-    const product = row[productIndex];
-    const date = new Date(row[dateIndex]);
-    const price = row[priceIndex];
+    const product = row[productIndex]; // product name
+    const date = new Date(row[dateIndex]); // converted date
+    const price = row[priceIndex]; // price
 
+    // if the date is within the last 4 weeks, add the price to its corresponding product
     if (date >= fourWeeksAgo) {
       if (!lastFourWeeksData[product]) {
         lastFourWeeksData[product] = [];
@@ -223,6 +267,7 @@ function getLast4WeekPrices(ss) {
     }
   });
 
+  // Check each product to ensure it has at least 28 records (4 weeks worth of data)
   for (const product in lastFourWeeksData) {
     if (lastFourWeeksData[product].length < 28) {
       Logger.log(`Warning: Not enough data for product "${product}" in the last 7 days. Only ${lastFourWeeksData[product].length}`);
@@ -232,6 +277,8 @@ function getLast4WeekPrices(ss) {
   return lastFourWeeksData;
 }
 
+// get the recend 7 days prices
+// same functionality with getLast4Weeks function but 7 days
 function getLast7DaysPrices(ss) {
   const sheet = getOrCreateSheet(ss, "Historical Data");
   const data = sheet.getDataRange().getValues();
@@ -268,33 +315,38 @@ function getLast7DaysPrices(ss) {
   return last7DaysData;
 }
 
+//append the retrieved 24 hour price to historical data sheet
 function appendHistoricalData(ss, combinedData) {
+  // retrieve the "Historical Data" sheet or create it if it doesn't exist
   const sheet = getOrCreateSheet(ss, "Historical Data");
   if (!sheet) {
     Logger.log("Sheet not found!");
     return;
   }
 
+  // get the current date and time to append to the sheet
   const now = new Date();
-  const formattedDate = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
-  const formattedTime = `${(now.getHours() < 10 ? "0" : "") + now.getHours()}:${(now.getMinutes() < 10 ? "0" : "") + now.getMinutes()}`;
-
+  // adjust timezone here
+  const formattedDate = Utilities.formatDate(now, "Asia/Manila", "yyyy/MM/dd");
+  const formattedTime = Utilities.formatDate(now, "Asia/Manila", "HH:mm");
   
-
+  // retrieve the headers and the last row of the sheet
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const lastRow = sheet.getLastRow();
   const dateColumnIndex = headers.indexOf("Date") + 1; 
 
+  // check if data for the current date already exists in the sheet 
   if (lastRow > 1) { 
     const lastRowDate = sheet.getRange(lastRow, dateColumnIndex).getValue(); 
     const normalizedLastRowDate = `${lastRowDate.getFullYear()}/${lastRowDate.getMonth() + 1}/${lastRowDate.getDate()}`;
-
+      // If data for today already exists, log the message and stop the function
     if (normalizedLastRowDate === formattedDate) {
       Logger.log(`Data for ${formattedDate} already exists in the last row.`);
       return;
     }
   }
 
+  // append combined data to historical data sheet
   let currentRow = lastRow + 1;
   combinedData.forEach(item => {
     sheet.getRange(currentRow, headers.indexOf("Date") + 1).setValue(formattedDate);
@@ -307,8 +359,9 @@ function appendHistoricalData(ss, combinedData) {
   Logger.log(`Data appended successfully for ${formattedDate}.`);
 }
 
-
+// update the averages sheet
 function updateAveragesSheet(ss, weeklyAverages, fourWeekAverages) {
+  // retrieve the "Averages" sheet or create it if it doesn't exist
   const averagesSheet = getOrCreateSheet(ss, "Averages");
   if (!averagesSheet) {
     Logger.log("Averages sheet not found!");
@@ -316,6 +369,8 @@ function updateAveragesSheet(ss, weeklyAverages, fourWeekAverages) {
   }
   
   const lastRow = averagesSheet.getLastRow();
+
+  // If there are any existing data rows, clear them
   if (lastRow > 1) {
     averagesSheet.getRange(2, 1, lastRow - 1, averagesSheet.getLastColumn()).clear();
   }
@@ -326,6 +381,8 @@ function updateAveragesSheet(ss, weeklyAverages, fourWeekAverages) {
   const fourWeekCol = headers.indexOf("4 Week Average Price") + 1;
   
   let row = 2;
+
+  // append data
   for (const product in weeklyAverages) {
     averagesSheet.getRange(row, productCol).setValue(product);
     averagesSheet.getRange(row, weeklyCol).setValue(weeklyAverages[product].toFixed(2));
