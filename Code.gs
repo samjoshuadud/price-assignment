@@ -14,8 +14,8 @@ function updateAverages() {
   const fourWeekData =  getLast4WeekPrices(ss);
   
   //calculate the average prices of both periods
-  const weeklyAverages = calculateAverage(weeklyData);
-  const fourWeekAverages = calculateAverage(fourWeekData);
+  const weeklyAverages = calculateAverage(weeklyData, 7);
+  const fourWeekAverages = calculateAverage(fourWeekData, 28);
   
   // update the 'Averages' sheet with the new weekly and four weeks averages
   updateAveragesSheet(ss, weeklyAverages, fourWeekAverages);
@@ -211,25 +211,25 @@ function getNew24HourData(ss) {
 }
 
 // calculation of averages
-function calculateAverage(lastData) {  
+function calculateAverage(lastData, requiredDays) {  
   // create an object to hold the averages for both weekly and four weeks
-  const weeklyAverages = {};
+  const averages = {};
 
-  // iteratate through each product
+  // iterate through each product
   for (const [product, prices] of Object.entries(lastData)) {
-    //check if there are no prices available for the current product
-    if (prices.length === 0) {
-      Logger.log(`No prices available for product: ${product}`);
-      weeklyAverages[product] = null;
+    // Check if there are enough prices available for the current product
+    if (!prices || prices.length < requiredDays) {
+      Logger.log(`Not enough data for product: ${product}. Found ${prices ? prices.length : 0} days, required ${requiredDays}`);
+      averages[product] = null;
       continue;
     }
 
-  // calculate the total of the prices by summing up all the values
+    // calculate the total of the prices by summing up all the values
     const total = prices.reduce((sum, price) => sum + parseFloat(price || 0), 0);
-    weeklyAverages[product] = total / prices.length;
+    averages[product] = total / prices.length;
   }
 
-  return weeklyAverages;
+  return averages;
 }
 
 // get the recent 4 week prices
@@ -338,12 +338,17 @@ function appendHistoricalData(ss, combinedData) {
   // check if data for the current date already exists in the sheet 
   if (lastRow > 1) { 
     const lastRowDate = sheet.getRange(lastRow, dateColumnIndex).getValue(); 
-    const normalizedLastRowDate = `${lastRowDate.getFullYear()}/${lastRowDate.getMonth() + 1}/${lastRowDate.getDate()}`;
-      // If data for today already exists, log the message and stop the function
+    const normalizedLastRowDate = Utilities.formatDate(
+          new Date(lastRowDate), 
+          "Asia/Manila", 
+          "yyyy/MM/dd"
+        );      // If data for today already exists, log the message and stop the function
     if (normalizedLastRowDate === formattedDate) {
       Logger.log(`Data for ${formattedDate} already exists in the last row.`);
       return;
     }
+
+    Logger.log(`Formatted Date: ${formattedDate}, normalizeLastRowDate: ${normalizedLastRowDate}`)
   }
 
   // append combined data to historical data sheet
@@ -385,8 +390,25 @@ function updateAveragesSheet(ss, weeklyAverages, fourWeekAverages) {
   // append data
   for (const product in weeklyAverages) {
     averagesSheet.getRange(row, productCol).setValue(product);
-    averagesSheet.getRange(row, weeklyCol).setValue(weeklyAverages[product].toFixed(2));
-    averagesSheet.getRange(row, fourWeekCol).setValue(fourWeekAverages[product].toFixed(2));
+    
+    // Check if weekly average exists (has enough data)
+    if (weeklyAverages[product] !== null) {
+      averagesSheet.getRange(row, weeklyCol).setValue(weeklyAverages[product].toFixed(2));
+    } else {
+      // Leave cell empty if not enough data
+      averagesSheet.getRange(row, weeklyCol).setValue("");
+      Logger.log(`Not enough weekly data for product "${product}", leaving cell empty.`);
+    }
+    
+    // Check if 4-week average exists (has enough data)
+    if (fourWeekAverages[product] !== null) {
+      averagesSheet.getRange(row, fourWeekCol).setValue(fourWeekAverages[product].toFixed(2));
+    } else {
+      // Leave cell empty if not enough data
+      averagesSheet.getRange(row, fourWeekCol).setValue("");
+      Logger.log(`Not enough 4-week data for product "${product}", leaving cell empty.`);
+    }
+    
     row++;
   }
 }
