@@ -109,37 +109,4 @@
 3. **Data Appending:**  
    New data is appended to the "Historical Data" sheet only if it doesn't already exist for the current day. This prevents duplication and ensures that the same date is not logged multiple times for the same product. If data for the current day already exists in the sheet, the script simply skips appending and proceeds with the rest of the execution.
 
----
-
-### **C. Chart Creation and Updates**
-
-1. **Weekly and Four-Week Charts:**  
-   The script generates two separate line charts — one for the weekly average prices and one for the four-week average prices. Each time the script is run, it:
-   - Updates the charts with the most recent data.
-   - Clears any previous charts to ensure that only the current, up-to-date charts are displayed.
-
-2. **Chart Customization:**  
-   Each chart is configured with the following options:
-   - **Title:** The title of the chart is set to reflect whether it represents weekly or four-week averages.
-   - **X-Axis (Date):** The dates are shown on the X-axis, and they are formatted in the `yyyy/MM/dd` format.
-   - **Y-Axis (Price):** The prices are displayed on the Y-axis with labels indicating the average price for that period.
-   - **Legend:** A legend is included to display the products being tracked.
-
-3. **Chart Sheet Creation:**  
-   If the "Weekly Chart" or "Four Weeks Chart" sheets do not exist, they are created automatically. The script checks for the existence of the sheets and creates them if they are missing. This ensures that chart data is always available in the spreadsheet, even if the user is running the script for the first time or after deleting the charts.
-
----
-### **E. Considerations for Future Enhancements**
-
-1. **Graceful Handling of Missing Data:**  
-   The current approach strictly checks for enough data before calculating averages. Future enhancements could consider more flexible handling, such as interpolating or using the available data to calculate approximate averages when full datasets are missing.
-
-2. **Dynamic Chart Updates:**  
-   The chart creation and update logic is currently fixed for weekly and four-week averages. Depending on the needs, it might be beneficial to allow the user to specify different time frames (e.g., monthly, quarterly) for which charts and averages are generated dynamically.
-
----
-
-
-
-
 
