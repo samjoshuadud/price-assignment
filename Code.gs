@@ -56,7 +56,7 @@ function createCharts(ss, weeklyAverages, fourWeeksAverage) {
 
 
   const now = new Date();
-  const formattedDate = Utilities.formatDate(now, "Asia/Manila", "yyyy/MM/dd"); //Change TimeZone Here
+  const formattedDate = Utilities.formatDate(now, "America/Toronto", "yyyy/MM/dd"); //Change TimeZone Here
 
 
 
@@ -327,8 +327,8 @@ function appendHistoricalData(ss, combinedData) {
   // get the current date and time to append to the sheet
   const now = new Date();
   // adjust timezone here
-  const formattedDate = Utilities.formatDate(now, "Asia/Manila", "yyyy/MM/dd");
-  const formattedTime = Utilities.formatDate(now, "Asia/Manila", "HH:mm");
+  const formattedDate = Utilities.formatDate(now, "America/Toronto", "yyyy/MM/dd");
+  const formattedTime = Utilities.formatDate(now, "America/Toronto", "HH:mm");
   
   // retrieve the headers and the last row of the sheet
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
